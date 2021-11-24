@@ -376,7 +376,7 @@ func TestStatusManagerSetFromDaemonSets(t *testing.T) {
 		{Namespace: "two", Name: "beta"},
 	})
 
-	status.SetFromPods()
+	status.SetFromRollout()
 	co, oc, err := getStatuses(client, "testing")
 	if err != nil {
 		t.Fatalf("error getting ClusterOperator: %v", err)
@@ -419,7 +419,7 @@ func TestStatusManagerSetFromDaemonSets(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error creating DaemonSet: %v", err)
 	}
-	status.SetFromPods()
+	status.SetFromRollout()
 
 	// Since the DaemonSet.Status reports no pods Available, the status should be Progressing
 	co, oc, err = getStatuses(client, "testing")
@@ -490,7 +490,7 @@ func TestStatusManagerSetFromDaemonSets(t *testing.T) {
 		if err != nil {
 			t.Fatalf("error updating DaemonSet: %v", err)
 		}
-		status.SetFromPods()
+		status.SetFromRollout()
 
 		co, oc, err = getStatuses(client, "testing")
 		if err != nil {
@@ -559,7 +559,7 @@ func TestStatusManagerSetFromDaemonSets(t *testing.T) {
 		t.Fatalf("error updating DaemonSet: %v", err)
 	}
 	time.Sleep(1 * time.Second) // minimum transition time fidelity
-	status.SetFromPods()
+	status.SetFromRollout()
 
 	co, oc, err = getStatuses(client, "testing")
 	if err != nil {
@@ -606,7 +606,7 @@ func TestStatusManagerSetFromDaemonSets(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error updating DaemonSet: %v", err)
 	}
-	status.SetFromPods()
+	status.SetFromRollout()
 
 	co, oc, err = getStatuses(client, "testing")
 	if err != nil {
@@ -650,7 +650,7 @@ func TestStatusManagerSetFromDaemonSets(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error updating DaemonSet: %v", err)
 	}
-	status.SetFromPods()
+	status.SetFromRollout()
 
 	co, oc, err = getStatuses(client, "testing")
 	if err != nil {
@@ -693,7 +693,7 @@ func TestStatusManagerSetFromDaemonSets(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error updating DaemonSet: %v", err)
 	}
-	status.SetFromPods()
+	status.SetFromRollout()
 
 	co, oc, err = getStatuses(client, "testing")
 	if err != nil {
@@ -740,7 +740,7 @@ func TestStatusManagerSetFromDaemonSets(t *testing.T) {
 
 	t0 := time.Now()
 	time.Sleep(time.Second / 10)
-	status.SetFromPods()
+	status.SetFromRollout()
 
 	co, oc, err = getStatuses(client, "testing")
 	if err != nil {
@@ -801,7 +801,7 @@ func TestStatusManagerSetFromDaemonSets(t *testing.T) {
 		}
 	}
 	setLastPodState(t, client, "testing", ps)
-	status.SetFromPods()
+	status.SetFromRollout()
 
 	co, oc, err = getStatuses(client, "testing")
 	if err != nil {
@@ -859,7 +859,7 @@ func TestStatusManagerSetFromDaemonSets(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error updating DaemonSet: %v", err)
 	}
-	status.SetFromPods()
+	status.SetFromRollout()
 
 	// see that the pod state is sensible
 	co, oc, err = getStatuses(client, "testing")
@@ -923,7 +923,7 @@ func TestStatusManagerSetFromDaemonSets(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error creating DaemonSet: %v", err)
 	}
-	status.SetFromPods()
+	status.SetFromRollout()
 
 	// We should now be Progressing, but not un-Available
 	co, oc, err = getStatuses(client, "testing")
@@ -964,7 +964,7 @@ func TestStatusManagerSetFromDaemonSets(t *testing.T) {
 		}
 	}
 	setLastPodState(t, client, "testing", ps)
-	status.SetFromPods()
+	status.SetFromRollout()
 
 	co, oc, err = getStatuses(client, "testing")
 	if err != nil {
@@ -1007,7 +1007,7 @@ func TestStatusManagerSetFromDaemonSets(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error updating DaemonSet: %v", err)
 	}
-	status.SetFromPods()
+	status.SetFromRollout()
 
 	co, oc, err = getStatuses(client, "testing")
 	if err != nil {
@@ -1051,7 +1051,7 @@ func TestStatusManagerSetFromDeployments(t *testing.T) {
 		{Namespace: "one", Name: "alpha"},
 	})
 
-	status.SetFromPods()
+	status.SetFromRollout()
 
 	co, oc, err := getStatuses(client, "testing")
 	if err != nil {
@@ -1086,7 +1086,7 @@ func TestStatusManagerSetFromDeployments(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error creating Deployment: %v", err)
 	}
-	status.SetFromPods()
+	status.SetFromRollout()
 
 	co, oc, err = getStatuses(client, "testing")
 	if err != nil {
@@ -1111,7 +1111,7 @@ func TestStatusManagerSetFromDeployments(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error creating Deployment: %v", err)
 	}
-	status.SetFromPods()
+	status.SetFromRollout()
 
 	co, oc, err = getStatuses(client, "testing")
 	if err != nil {
@@ -1159,7 +1159,7 @@ func TestStatusManagerSetFromDeployments(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error updating Deployment: %v", err)
 	}
-	status.SetFromPods()
+	status.SetFromRollout()
 
 	co, oc, err = getStatuses(client, "testing")
 	if err != nil {
@@ -1212,7 +1212,7 @@ func TestStatusManagerSetFromDeployments(t *testing.T) {
 
 	t0 := time.Now()
 	time.Sleep(time.Second / 10)
-	status.SetFromPods()
+	status.SetFromRollout()
 
 	co, oc, err = getStatuses(client, "testing")
 	if err != nil {
@@ -1276,7 +1276,7 @@ func TestStatusManagerSetFromDeployments(t *testing.T) {
 		}
 	}
 	setLastPodState(t, client, "testing", ps)
-	status.SetFromPods()
+	status.SetFromRollout()
 
 	co, oc, err = getStatuses(client, "testing")
 	if err != nil {
@@ -1324,7 +1324,7 @@ func TestStatusManagerSetFromDeployments(t *testing.T) {
 		t.Fatalf("error updating Deployment: %v", err)
 	}
 
-	status.SetFromPods()
+	status.SetFromRollout()
 
 	co, oc, err = getStatuses(client, "testing")
 	if err != nil {
@@ -1355,7 +1355,7 @@ func TestStatusManagerSetFromDeployments(t *testing.T) {
 	}
 }
 
-func getLastPodState(t *testing.T, client client.Client, name string) podState {
+func getLastPodState(t *testing.T, client client.Client, name string) rolloutState {
 	t.Helper()
 	co, err := getCO(client, name)
 	if err != nil {
@@ -1363,7 +1363,7 @@ func getLastPodState(t *testing.T, client client.Client, name string) podState {
 	}
 	t.Log(co.Annotations)
 
-	ps := podState{}
+	ps := rolloutState{}
 	if err := json.Unmarshal([]byte(co.Annotations[lastSeenAnnotation]), &ps); err != nil {
 		t.Fatal(err)
 	}
@@ -1372,7 +1372,7 @@ func getLastPodState(t *testing.T, client client.Client, name string) podState {
 }
 
 // sets *all* last-seen-times back an hour
-func setLastPodState(t *testing.T, client client.Client, name string, ps podState) {
+func setLastPodState(t *testing.T, client client.Client, name string, ps rolloutState) {
 	t.Helper()
 	co, err := getCO(client, name)
 	if err != nil {
@@ -1539,7 +1539,7 @@ func TestStatusManagerCheckCrashLoopBackOffPods(t *testing.T) {
 		t.Fatalf("error creating Pod: %v", err)
 	}
 
-	status.SetFromPods()
+	status.SetFromRollout()
 
 	oc, err := getOC(client)
 	if err != nil {
@@ -1611,7 +1611,7 @@ func TestStatusManagerCheckCrashLoopBackOffPods(t *testing.T) {
 		t.Fatalf("error creating Pod: %v", err)
 	}
 
-	status.SetFromPods()
+	status.SetFromRollout()
 	oc, err = getOC(client)
 	if err != nil {
 		t.Fatalf("error getting ClusterOperator: %v", err)
