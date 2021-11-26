@@ -2,8 +2,6 @@ package operconfig
 
 import (
 	"context"
-	"log"
-
 	"github.com/openshift/cluster-network-operator/pkg/controller/statusmanager"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -29,7 +27,7 @@ func (r *ReconcileRollout) SetResources(resources []types.NamespacedName) {
 }
 
 // Reconcile updates the ClusterOperator.Status to match the current state of the
-// watched Deployments/DaemonSets
+// watched Deployments/DaemonSets/MachineConfigs/MachineConfigPools
 func (r *ReconcileRollout) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	found := false
 	for _, name := range r.resources {
@@ -42,7 +40,7 @@ func (r *ReconcileRollout) Reconcile(ctx context.Context, request reconcile.Requ
 		return reconcile.Result{}, nil
 	}
 
-	log.Printf("Reconciling update to %s/%s\n", request.Namespace, request.Name)
+	//log.Printf("Reconciling update to %s/%s\n", request.Namespace, request.Name)
 	r.status.SetFromRollout()
 
 	return reconcile.Result{RequeueAfter: ResyncPeriod}, nil

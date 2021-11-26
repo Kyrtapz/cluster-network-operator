@@ -37,8 +37,8 @@ const (
 // for pod-creating entities, as marshalled to json in an annotation
 type rolloutState struct {
 	// "public" for marshalling to json, since we can't have complex keys
-	DaemonsetStates  []daemonsetState
-	DeploymentStates []deploymentState
+	DaemonsetStates         []daemonsetState
+	DeploymentStates        []deploymentState
 	MachineConfigPoolStates []machineConfigPoolState
 }
 
@@ -74,7 +74,7 @@ func (status *StatusManager) SetFromRollout() []types.NamespacedName {
 	defer status.Unlock()
 
 	targetLevel := os.Getenv("RELEASE_VERSION")
-	reachedAvailableLevel := (len(status.daemonSets) + len(status.deployments)) + len(status.machineConfigs) > 0
+	reachedAvailableLevel := (len(status.daemonSets)+len(status.deployments))+len(status.machineConfigs) > 0
 
 	resources := []types.NamespacedName{}
 	progressing := []string{}
@@ -209,21 +209,23 @@ func (status *StatusManager) SetFromRollout() []types.NamespacedName {
 		}
 	}
 
-	// CNO status is derived from MachineConfigPool status which source
-	// MachineConfigs rendered by CNO.
+	// CNO might render MachineConfigs so its status is derived from the status
+	// of the MachineConfigPool associated to those MachineConfigs.
 	observedMachineConfigPools := map[types.NamespacedName]bool{}
 	for _, mcName := range status.machineConfigs {
 		resources = append(resources, mcName)
 		mc := &mcfgv1.MachineConfig{}
 		if err := status.client.Get(context.TODO(), mcName, mc); err != nil {
 			log.Printf("Error getting MachineConfig %q: %v", mcName.String(), err)
+			reachedAvailableLevel = false
 			progressing = append(progressing, fmt.Sprintf("Waiting for MachineConfig %q to be created", mcName.String()))
 			continue
 		}
-		
-		mcpName, isAssignedToPool := mc.GetAnnotations()[names.MachineConfigPoolAnnotation]
+
+		mcpName, isAssignedToPool := mc.Labels[names.MachineConfigPoolAnnotation]
 		if !isAssignedToPool {
-			progressing = append(progressing, fmt.Sprintf("Waiting for MachineConfig %q to have a MachineConfigPool manually assigned", mcName.String()))
+			reachedAvailableLevel = false
+			progressing = append(progressing, fmt.Sprintf("Waiting for MachineConfig %q to have a MachineConfigPool assigned", mcName.String()))
 			continue
 		}
 
@@ -232,28 +234,34 @@ func (status *StatusManager) SetFromRollout() []types.NamespacedName {
 		mcp := &mcfgv1.MachineConfigPool{}
 		if err := status.client.Get(context.TODO(), mcpNamespacedName, mcp); err != nil {
 			log.Printf("Error getting MachineConfigPool %q: %v", mcpName, err)
+			reachedAvailableLevel = false
+			progressing = append(progressing, fmt.Sprintf("Waiting for MachineConfigPool %q of MachineConfig %q to be created", mcpName, mcName.String()))
 			continue
 		}
 
 		var isSourcedByPool bool
-		for _, obj := range mcp.Status.Configuration.Source {
+		for _, obj := range mcp.Spec.Configuration.Source {
 			if obj.Kind == "MachineConfig" && obj.Namespace == mc.Namespace && obj.Name == mc.Name {
 				isSourcedByPool = true
 				break
 			}
 		}
 
+		var mcProgressing bool
 		if !isSourcedByPool {
-			progressing = append(progressing, fmt.Sprintf("Waiting for MachineConfig %q to be applied to MachineConfigPool %q", mcName.String(), mcpName))
-			continue
+			mcProgressing = true
+			progressing = append(progressing, fmt.Sprintf("MachineConfig %q is not yet sourced by MachineConfigPool %q", mcName.String(), mcpName))
+		} else if mcp.Status.UpdatedMachineCount < mcp.Status.MachineCount || mcp.Status.ReadyMachineCount < mcp.Status.MachineCount {
+			mcProgressing = true
+			progressing = append(progressing, fmt.Sprintf("MachineConfig %q is being rolled out by MachineConfigPool %q", mcName.String(), mcpName))
 		}
 
-		if mcp.Status.UpdatedMachineCount < mcp.Status.MachineCount || mcp.Status.ReadyMachineCount < mcp.Status.MachineCount {
-			progressing = append(progressing, fmt.Sprintf("Waiting for MachineConfig %q to be rolled out by MachineConfigPool %q", mcName.String(), mcpName))
-			continue
+		if mc.Annotations["release.openshift.io/version"] != targetLevel {
+			reachedAvailableLevel = false
 		}
 
-		if isAssignedToPool && !isNonCritical(mc) {
+		if mcProgressing && !isNonCritical(mc) {
+			reachedAvailableLevel = false
 			observedMachineConfigPools[mcpNamespacedName] = true
 			mcpState, exists := machineConfigPoolStates[mcpNamespacedName]
 			if !exists || !reflect.DeepEqual(mcpState.LastSeenStatus, mcp.Status) {
@@ -372,8 +380,8 @@ func (status *StatusManager) setLastRolloutState(
 	mcps map[types.NamespacedName]machineConfigPoolState) error {
 
 	ps := rolloutState{
-		DaemonsetStates:  make([]daemonsetState, 0, len(dss)),
-		DeploymentStates: make([]deploymentState, 0, len(deps)),
+		DaemonsetStates:         make([]daemonsetState, 0, len(dss)),
+		DeploymentStates:        make([]deploymentState, 0, len(deps)),
 		MachineConfigPoolStates: make([]machineConfigPoolState, 0, len(mcps)),
 	}
 

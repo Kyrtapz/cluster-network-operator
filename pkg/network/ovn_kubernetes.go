@@ -3,6 +3,7 @@ package network
 import (
 	"context"
 	"fmt"
+	mcfgv1 "github.com/openshift/machine-config-operator/pkg/apis/machineconfiguration.openshift.io/v1"
 	"math"
 	"net"
 	"os"
@@ -21,6 +22,7 @@ import (
 	"github.com/openshift/cluster-network-operator/pkg/render"
 	"github.com/openshift/cluster-network-operator/pkg/util/k8s"
 	"github.com/pkg/errors"
+	"gopkg.in/gcfg.v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -46,6 +48,37 @@ const OVN_SHARED_GW_MODE = "shared"
 const OVN_LOG_PATTERN_CONSOLE = "%D{%Y-%m-%dT%H:%M:%S.###Z}|%05N|%c%T|%p|%m"
 
 var OVN_MASTER_DISCOVERY_TIMEOUT = 250
+
+func MCApplied(kubeClient client.Client, mc *mcfgv1.MachineConfig) (bool, error) {
+	mcpName, isAssignedToPool := mc.Labels[names.MachineConfigPoolAnnotation]
+	if !isAssignedToPool {
+		return false, nil
+	}
+
+	mcpNamespacedName := types.NamespacedName{Name: mcpName}
+	mcp := &mcfgv1.MachineConfigPool{}
+	if err := kubeClient.Get(context.TODO(), mcpNamespacedName, mcp); err != nil {
+		return false, err
+	}
+
+	var isSourcedByPool bool
+	for _, obj := range mcp.Status.Configuration.Source {
+		if obj.Kind == "MachineConfig" && obj.Namespace == mc.Namespace && obj.Name == mc.Name {
+			isSourcedByPool = true
+			break
+		}
+	}
+
+	if !isSourcedByPool {
+		return false, nil
+	}
+
+	if mcp.Status.UpdatedMachineCount < mcp.Status.MachineCount || mcp.Status.ReadyMachineCount < mcp.Status.MachineCount {
+		return false, nil
+	}
+
+	return true, nil
+}
 
 // renderOVNKubernetes returns the manifests for the ovn-kubernetes.
 // This creates
@@ -74,7 +107,26 @@ func renderOVNKubernetes(conf *operv1.NetworkSpec, bootstrapResult *bootstrap.Bo
 	data.Data["KUBERNETES_SERVICE_HOST"] = os.Getenv("KUBERNETES_SERVICE_HOST")
 	data.Data["KUBERNETES_SERVICE_PORT"] = os.Getenv("KUBERNETES_SERVICE_PORT")
 	data.Data["K8S_APISERVER"] = fmt.Sprintf("https://%s:%s", os.Getenv("KUBERNETES_SERVICE_HOST"), os.Getenv("KUBERNETES_SERVICE_PORT"))
-	data.Data["MTU"] = c.MTU
+
+	// https://github.com/openshift/enhancements/blob/600ec244206895e40e66ac69c17667cd86a00da1/enhancements/network/allow-mtu-changes.md#cno-coordinate-mtu-change
+	targetMTU := c.MTU
+	currentMTU := bootstrapResult.OVN.ExistingMTU
+	data.Data["TargetMTU"] = targetMTU
+	data.Data["MTU"] = targetMTU
+	data.Data["RoutableMTU"] = nil
+	if currentMTU != nil && *currentMTU != *targetMTU {
+		if *targetMTU > *currentMTU {
+			if bootstrapResult.OVN.ExistingRoutableMTU == nil {
+				data.Data["RoutableMTU"] = currentMTU
+			}
+		} else { // targetMTU < mtu
+			if bootstrapResult.OVN.ExistingRoutableMTU == nil || *bootstrapResult.OVN.ExistingRoutableMTU > *targetMTU {
+				data.Data["MTU"] = currentMTU
+				data.Data["RoutableMTU"] = targetMTU
+			}
+		}
+	}
+
 	data.Data["GenevePort"] = c.GenevePort
 	data.Data["CNIConfDir"] = pluginCNIConfDir(conf)
 	data.Data["CNIBinDir"] = CNIBinDir
@@ -187,6 +239,40 @@ func renderOVNKubernetes(conf *operv1.NetworkSpec, bootstrapResult *bootstrap.Bo
 		data.Data["IsSNO"] = false
 	}
 
+	renderFirstStage := false
+	renderSecondStage := false
+	mcNameMaster := fmt.Sprintf("cno-set-target-mtu-%d-master", *c.MTU)
+	mcNameWorker := fmt.Sprintf("cno-set-target-mtu-%d-worker", *c.MTU)
+	if *bootstrapResult.OVN.ExistingMTU != *c.MTU || bootstrapResult.OVN.ExistingRoutableMTU != nil {
+		masterApplied, masterExists := bootstrapResult.OVN.ExistingMachineConfigs[mcNameMaster]
+		workerApplied, workerExists := bootstrapResult.OVN.ExistingMachineConfigs[mcNameWorker]
+
+		if !masterExists || !workerExists {
+			klog.Infof("[MTU]: Render first stage MC cno-set-target-mtu-%d-[master/worker]", *c.MTU)
+			renderFirstStage = true
+		} else if !masterApplied || !workerApplied {
+			data.Data["RoutableMTU"] = bootstrapResult.OVN.ExistingRoutableMTU
+			data.Data["MTU"] = bootstrapResult.OVN.ExistingMTU
+			klog.Infof("[MTU]: Re-render first stage MC cno-set-target-mtu-%d-[master/worker]", *c.MTU)
+			renderFirstStage = true
+		} else {
+			klog.Infof("[MTU]: Render second stage MC cno-unset-target-mtu-[master/worker]")
+			renderSecondStage = true
+		}
+	} else {
+		masterApplied, masterExists := bootstrapResult.OVN.ExistingMachineConfigs["cno-unset-target-mtu-master"]
+		workerApplied, workerExists := bootstrapResult.OVN.ExistingMachineConfigs["cno-unset-target-mtu-worker"]
+		if masterExists && workerExists {
+			if !masterApplied || !workerApplied {
+				klog.Infof("[MTU]: Re-render second stage MC cno-unset-target-mtu-[master/worker]")
+				renderSecondStage = true
+			} else {
+				// We have updated the MTU of the cluster
+				klog.Infof("[MTU]: MTU updated successfully")
+			}
+		}
+	}
+
 	manifests, err := render.RenderDir(filepath.Join(manifestDir, "network/ovn-kubernetes"), &data)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to render manifests")
@@ -236,6 +322,21 @@ func renderOVNKubernetes(conf *operv1.NetworkSpec, bootstrapResult *bootstrap.Bo
 	if !renderPrePull {
 		// remove prepull from the list of objects to render.
 		objs = k8s.RemoveObjByGroupKindName(objs, "apps", "DaemonSet", "openshift-ovn-kubernetes", "ovnkube-upgrades-prepuller")
+	}
+
+	if data.Data["RoutableMTU"] != nil {
+		klog.Infof("[MTU]: TargetMTU: %d | MTU: %d | RoutableMTU: %d", *c.MTU, *data.Data["MTU"].(*uint32), *data.Data["RoutableMTU"].(*uint32))
+	} else {
+		klog.Infof("[MTU]: TargetMTU: %d | MTU: %d | RoutableMTU: nil", *c.MTU, *data.Data["MTU"].(*uint32))
+	}
+
+	if !renderFirstStage {
+		objs = k8s.RemoveObjByGroupKindName(objs, "machineconfiguration.openshift.io", "MachineConfig", "", mcNameMaster)
+		objs = k8s.RemoveObjByGroupKindName(objs, "machineconfiguration.openshift.io", "MachineConfig", "", mcNameWorker)
+	}
+	if !renderSecondStage {
+		objs = k8s.RemoveObjByGroupKindName(objs, "machineconfiguration.openshift.io", "MachineConfig", "", "cno-unset-target-mtu-master")
+		objs = k8s.RemoveObjByGroupKindName(objs, "machineconfiguration.openshift.io", "MachineConfig", "", "cno-unset-target-mtu-worker")
 	}
 
 	return objs, nil
@@ -334,9 +435,10 @@ func isOVNKubernetesChangeSafe(prev, next *operv1.NetworkSpec) []error {
 	nn := next.DefaultNetwork.OVNKubernetesConfig
 	errs := []error{}
 
-	if !reflect.DeepEqual(pn.MTU, nn.MTU) {
-		errs = append(errs, errors.Errorf("cannot change ovn-kubernetes MTU"))
-	}
+	// TODO: Check migration field, is an annotation a good approach? Shouldn't we use the `migration` spec field?
+	//if !reflect.DeepEqual(pn.MTU, nn.MTU) {
+	//	errs = append(errs, errors.Errorf("cannot change ovn-kubernetes MTU"))
+	//}
 	if !reflect.DeepEqual(pn.GenevePort, nn.GenevePort) {
 		errs = append(errs, errors.Errorf("cannot change ovn-kubernetes genevePort"))
 	}
@@ -437,6 +539,55 @@ func bootstrapOVN(conf *operv1.Network, kubeClient client.Client) (*bootstrap.Bo
 		return nil, fmt.Errorf("Unable to bootstrap OVN, unable to retrieve infrastructure 'cluster': %v", err)
 	}
 	externalControlPlane := infraConfig.Status.ControlPlaneTopology == configv1.ExternalTopologyMode
+
+	var existingMTU, existingRoutableMTU *uint32
+
+	ovnkubeConfig := &corev1.ConfigMap{}
+	ovnkubeConfigLookup := types.NamespacedName{Namespace: "openshift-ovn-kubernetes", Name: "ovnkube-config"}
+	if err := kubeClient.Get(context.TODO(), ovnkubeConfigLookup, ovnkubeConfig); err != nil {
+		if !apierrors.IsNotFound(err) {
+			return nil, fmt.Errorf("Unable to bootstrap OVN, unable to retrieve ovnkube config: %s", err)
+		}
+	}
+
+	// TODO: import config from ovkube(import issues)
+	cfg := struct {
+		Default struct {
+			MTU         uint32 `gcfg:"mtu"`
+			RoutableMTU uint32 `gcfg:"routable-mtu"`
+		}
+	}{}
+
+	// TODO: Check if `ovnkube.conf` exists in config map?
+	if err := gcfg.FatalOnly(gcfg.ReadStringInto(&cfg, ovnkubeConfig.Data["ovnkube.conf"])); err != nil {
+		return nil, fmt.Errorf("Unable to bootstrap OVN, unable to parse ovnkube config: %s", err)
+	}
+	existingMTU = &cfg.Default.MTU
+	if cfg.Default.RoutableMTU != 0 {
+		existingRoutableMTU = &cfg.Default.RoutableMTU
+	}
+
+	machineConfigs := []string{
+		fmt.Sprintf("cno-set-target-mtu-%d-master", *conf.Spec.DefaultNetwork.OVNKubernetesConfig.MTU),
+		fmt.Sprintf("cno-set-target-mtu-%d-worker", *conf.Spec.DefaultNetwork.OVNKubernetesConfig.MTU),
+		"cno-unset-target-mtu-master",
+		"cno-unset-target-mtu-worker"}
+
+	existingMachineConfigs := make(map[string]bool)
+	for _, mcName := range machineConfigs {
+		mc := &mcfgv1.MachineConfig{}
+		if err := kubeClient.Get(context.TODO(), types.NamespacedName{Name: mcName}, mc); err != nil {
+			if !apierrors.IsNotFound(err) {
+				return nil, fmt.Errorf("Unable to bootstrap OVN, unable to retrieve machineconfig: %s", err)
+			}
+			continue
+		}
+		mcApplied, err := MCApplied(kubeClient, mc)
+		if err != nil {
+			return nil, fmt.Errorf("Unable to bootstrap OVN, unable to retrieve machineconfig status: %s", err)
+		}
+		existingMachineConfigs[mcName] = mcApplied
+	}
 
 	var platformType configv1.PlatformType
 	if infraConfig.Status.PlatformStatus != nil {
@@ -563,6 +714,9 @@ func bootstrapOVN(conf *operv1.Network, kubeClient client.Client) (*bootstrap.Bo
 		OVN: bootstrap.OVNBootstrapResult{
 			MasterIPs:               ovnMasterIPs,
 			ClusterInitiator:        clusterInitiator,
+			ExistingMTU:             existingMTU,
+			ExistingRoutableMTU:     existingRoutableMTU,
+			ExistingMachineConfigs:  existingMachineConfigs,
 			ExistingMasterDaemonset: masterDS,
 			ExistingNodeDaemonset:   nodeDS,
 			OVNKubernetesConfig:     ovnConfigResult,

@@ -2,4 +2,4 @@
 
 set -eu
 
-make build
+make build GO_BUILD_FLAGS="-gcflags \"all=-N -l\""

@@ -2,13 +2,10 @@ package statusmanager
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"os"
 	"reflect"
 	"sync"
-
-	"github.com/ghodss/yaml"
 
 	configv1 "github.com/openshift/api/config/v1"
 	operv1 "github.com/openshift/api/operator/v1"
@@ -188,15 +185,15 @@ func (status *StatusManager) set(reachedAvailableLevel bool, conditions ...operv
 			return nil
 		}
 
-		buf, err := yaml.Marshal(oc.Status.Conditions)
-		if err != nil {
-			buf = []byte(fmt.Sprintf("(failed to convert to YAML: %s)", err))
-		}
+		//buf, err := yaml.Marshal(oc.Status.Conditions)
+		//if err != nil {
+		//	buf = []byte(fmt.Sprintf("(failed to convert to YAML: %s)", err))
+		//}
 
 		if err := status.client.Update(context.TODO(), oc); err != nil {
 			return err
 		}
-		log.Printf("Set operator conditions:\n%s", buf)
+		//log.Printf("Set operator conditions:\n%s", buf)
 
 		return nil
 	})
@@ -244,22 +241,22 @@ func (status *StatusManager) set(reachedAvailableLevel bool, conditions ...operv
 			return nil
 		}
 
-		buf, err := yaml.Marshal(co.Status.Conditions)
-		if err != nil {
-			buf = []byte(fmt.Sprintf("(failed to convert to YAML: %s)", err))
-		}
+		//buf, err := yaml.Marshal(co.Status.Conditions)
+		//if err != nil {
+		//	buf = []byte(fmt.Sprintf("(failed to convert to YAML: %s)", err))
+		//}
 
 		if isNotFound {
 			if err := status.client.Create(context.TODO(), co); err != nil {
 				return err
 			}
-			log.Printf("Set ClusterOperator conditions:\n%s", buf)
+			//log.Printf("Set ClusterOperator conditions:\n%s", buf)
 			return nil
 		}
 		if err := status.client.Status().Update(context.TODO(), co); err != nil {
 			return err
 		}
-		log.Printf("Set ClusterOperator conditions:\n%s", buf)
+		//log.Printf("Set ClusterOperator conditions:\n%s", buf)
 		return nil
 	})
 	if err != nil {

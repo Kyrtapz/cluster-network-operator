@@ -75,7 +75,7 @@ func (r *ReconcileIngressConfigs) Reconcile(ctx context.Context, request reconci
 	if request.Namespace != names.IngressControllerNamespace || request.Name != names.DefaultIngressControllerName {
 		return reconcile.Result{}, nil
 	}
-	log.Printf("Reconciling update to IngressController %s/%s\n", request.Namespace, request.Name)
+	//log.Printf("Reconciling update to IngressController %s/%s\n", request.Namespace, request.Name)
 	ingressControllerConfig := &operv1.IngressController{TypeMeta: metav1.TypeMeta{APIVersion: operv1.GroupVersion.String(), Kind: "IngressController"}}
 	err := r.client.Get(ctx, request.NamespacedName, ingressControllerConfig)
 	if err != nil {

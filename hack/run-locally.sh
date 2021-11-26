@@ -303,6 +303,7 @@ else
     exit 1
 fi
 
+set -x
 setup_operator_env "${IMAGE_ENV_KEY}" "${PLUGIN_IMAGE}"
 
-env $(cat "${CLUSTER_DIR}/env.sh") OSDK_FORCE_RUN_MODE=local ./cluster-network-operator start --kubeconfig "${KUBECONFIG}"
+env $(cat "${CLUSTER_DIR}/env.sh") OSDK_FORCE_RUN_MODE=local dlv exec --continue --listen=:2345 --headless=true --api-version=2 --accept-multiclient ./cluster-network-operator -- start --kubeconfig "${KUBECONFIG}"

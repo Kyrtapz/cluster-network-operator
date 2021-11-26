@@ -144,7 +144,7 @@ func (r *PKIReconciler) Reconcile(ctx context.Context, request reconcile.Request
 		return reconcile.Result{}, err
 	}
 
-	log.Println("successful reconciliation")
+	//log.Println("successful reconciliation")
 	delete(r.pkiErrs, request.NamespacedName)
 	r.setStatus()
 	return reconcile.Result{RequeueAfter: ResyncPeriod}, nil

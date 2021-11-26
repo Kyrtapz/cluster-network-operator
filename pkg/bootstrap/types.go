@@ -2,7 +2,6 @@ package bootstrap
 
 import (
 	"github.com/gophercloud/utils/openstack/clientconfig"
-
 	configv1 "github.com/openshift/api/config/v1"
 	appsv1 "k8s.io/api/apps/v1"
 )
@@ -39,6 +38,9 @@ type OVNConfigBoostrapResult struct {
 type OVNBootstrapResult struct {
 	MasterIPs               []string
 	ClusterInitiator        string
+	ExistingMTU             *uint32
+	ExistingRoutableMTU     *uint32
+	ExistingMachineConfigs  map[string]bool
 	ExistingMasterDaemonset *appsv1.DaemonSet
 	ExistingNodeDaemonset   *appsv1.DaemonSet
 	Platform                configv1.PlatformType

@@ -63,7 +63,7 @@ type ReconcileClusterConfig struct {
 // In other words, it watches Network.config.openshift.io/v1/cluster and updates
 // Network.operator.openshift.io/v1/cluster.
 func (r *ReconcileClusterConfig) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
-	log.Printf("Reconciling Network.config.openshift.io %s\n", request.Name)
+	//log.Printf("Reconciling Network.config.openshift.io %s\n", request.Name)
 
 	// We won't create more than one network
 	if request.Name != names.CLUSTER_CONFIG {

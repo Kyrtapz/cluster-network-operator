@@ -86,6 +86,7 @@ func add(mgr manager.Manager, r *ReconcileOperConfig) error {
 	if err != nil {
 		return err
 	}
+	mcfgv1.Install(mgr.GetScheme())
 	err = c.Watch(&source.Kind{Type: &mcfgv1.MachineConfig{}}, &handler.EnqueueRequestForObject{})
 	if err != nil {
 		return err
