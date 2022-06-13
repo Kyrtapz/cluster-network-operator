@@ -316,6 +316,15 @@ spec:
               - -c
               - |
                 set -x
+
+                # When network policies match the pod postStart hook does not have any connectivity in it's first run because status.podIP is not yet set(This affects clusters using OpenshiftSDN CNI).
+                # https://github.com/kubernetes/kubernetes/issues/85966
+                # To work around the issue exit if there is no connectivity to the pods gateway
+                gwIP=$(ip route show 0.0.0.0/0 |  cut -d\  -f3)
+                if ! ping -c1 -W1 "${gwIP}" > /dev/null; then
+                  echo "${gwIP} is not reachable, exiting"
+                  exit 1
+                fi
                 CLUSTER_INITIATOR_IP="{{.OVN_DB_CLUSTER_INITIATOR}}"
 
                 rm -f /var/run/ovn/ovnnb_db.pid
@@ -603,6 +612,15 @@ spec:
               - -c
               - |
                 set -x
+
+                # When network policies match the pod postStart hook does not have any connectivity in it's first run because status.podIP is not yet set(This affects clusters using OpenshiftSDN CNI).
+                # https://github.com/kubernetes/kubernetes/issues/85966
+                # To work around the issue exit if there is no connectivity to the pods gateway
+                gwIP=$(ip route show 0.0.0.0/0 |  cut -d\  -f3)
+                if ! ping -c1 -W1 "${gwIP}" > /dev/null; then
+                  echo "${gwIP} is not reachable, exiting"
+                  exit 1
+                fi
                 CLUSTER_INITIATOR_IP="{{.OVN_DB_CLUSTER_INITIATOR}}"
                 rm -f /var/run/ovn/ovnsb_db.pid
                 if [[ "${K8S_POD_NAME}.ovnkube-master-internal.{{.HostedClusterNamespace}}.svc.cluster.local" == "${CLUSTER_INITIATOR_IP}" ]]; then
