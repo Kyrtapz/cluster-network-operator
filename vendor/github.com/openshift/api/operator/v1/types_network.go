@@ -15,7 +15,10 @@ import (
 // +k8s:openapi-gen=true
 // +openshift:compatibility-gen:level=1
 type Network struct {
-	metav1.TypeMeta   `json:",inline"`
+	metav1.TypeMeta `json:",inline"`
+
+	// metadata is the standard object's metadata.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	Spec   NetworkSpec   `json:"spec,omitempty"`
@@ -36,8 +39,12 @@ type NetworkStatus struct {
 // +openshift:compatibility-gen:level=1
 type NetworkList struct {
 	metav1.TypeMeta `json:",inline"`
+
+	// metadata is the standard list's metadata.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []Network `json:"items"`
+
+	Items []Network `json:"items"`
 }
 
 // NetworkSpec is the top-level network configuration object.
@@ -130,6 +137,10 @@ type NetworkMigration struct {
 	// supported features.
 	// +optional
 	Features *FeaturesMigration `json:"features,omitempty"`
+
+	// isLive indicates if it's a live migration.
+	// +optional
+	IsLive bool `json:"isLive,omitempty"`
 }
 
 type FeaturesMigration struct {
@@ -404,7 +415,8 @@ type KuryrConfig struct {
 	// mtu is the MTU that Kuryr should use when creating pod networks in Neutron.
 	// The value has to be lower or equal to the MTU of the nodes network and Neutron has
 	// to allow creation of tenant networks with such MTU. If unset Pod networks will be
-	// created with the same MTU as the nodes network has.
+	// created with the same MTU as the nodes network has. This also affects the services
+	// network created by cluster-network-operator.
 	// +kubebuilder:validation:Minimum=0
 	// +optional
 	MTU *uint32 `json:"mtu,omitempty"`
@@ -472,6 +484,17 @@ type HybridOverlayConfig struct {
 type IPsecConfig struct {
 }
 
+type IPForwardingMode string
+
+const (
+	// IPForwardingRestricted limits the IP forwarding on OVN-Kube managed interfaces (br-ex, br-ex1) to only required
+	// service and other k8s related traffic
+	IPForwardingRestricted IPForwardingMode = "Restricted"
+
+	// IPForwardingGlobal allows all IP traffic to be forwarded across OVN-Kube managed interfaces
+	IPForwardingGlobal IPForwardingMode = "Global"
+)
+
 // GatewayConfig holds node gateway-related parsed config file parameters and command-line overrides
 type GatewayConfig struct {
 	// RoutingViaHost allows pod egress traffic to exit via the ovn-k8s-mp0 management port
@@ -481,6 +504,13 @@ type GatewayConfig struct {
 	// +kubebuilder:default:=false
 	// +optional
 	RoutingViaHost bool `json:"routingViaHost,omitempty"`
+	// IPForwarding controls IP forwarding for all traffic on OVN-Kubernetes managed interfaces (such as br-ex).
+	// By default this is set to Restricted, and Kubernetes related traffic is still forwarded appropriately, but other
+	// IP traffic will not be routed by the OCP node. If there is a desire to allow the host to forward traffic across
+	// OVN-Kubernetes managed interfaces, then set this field to "Global".
+	// The supported values are "Restricted" and "Global".
+	// +optional
+	IPForwarding IPForwardingMode `json:"ipForwarding,omitempty"`
 }
 
 type ExportNetworkFlows struct {
@@ -534,6 +564,11 @@ type PolicyAuditConfig struct {
 	// +kubebuilder:validation:Minimum=1
 	// +optional
 	MaxFileSize *uint32 `json:"maxFileSize,omitempty"`
+
+	// maxLogFiles specifies the maximum number of ACL_audit log files that can be present.
+	// Default: 5
+	// +optional
+	MaxLogFiles *int32 `json:"maxLogFiles,omitempty"`
 
 	// destination is the location for policy log messages.
 	// Regardless of this config, persistent logs will always be dumped to the host

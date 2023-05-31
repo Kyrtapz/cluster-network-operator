@@ -24,9 +24,9 @@ require (
 	github.com/vishvananda/netns v0.0.0-20200728191858-db3c7e526aae // indirect
 	golang.org/x/net v0.8.0
 	gopkg.in/yaml.v2 v2.4.0
-	k8s.io/api v0.26.1
+	k8s.io/api v0.27.1
 	k8s.io/apiextensions-apiserver v0.26.1
-	k8s.io/apimachinery v0.26.1
+	k8s.io/apimachinery v0.27.1
 	k8s.io/client-go v12.0.0+incompatible // replaced with  v0.26.1
 	k8s.io/code-generator v0.26.1
 	k8s.io/component-base v0.26.1
@@ -116,7 +116,7 @@ require (
 	k8s.io/apiserver v0.26.1 // indirect
 	k8s.io/gengo v0.0.0-20221011193443-fad74ee6edd9 // indirect
 	k8s.io/kube-aggregator v0.26.1 // indirect
-	k8s.io/kube-openapi v0.0.0-20230202010329-39b3636cbaa3 // indirect
+	k8s.io/kube-openapi v0.0.0-20230308215209-15aac26d736a // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.1.1 // indirect
 	sigs.k8s.io/cluster-api v1.3.5 // indirect
 	sigs.k8s.io/cluster-api-provider-ibmcloud v0.2.4 // indirect
@@ -147,9 +147,13 @@ require (
 )
 
 replace (
+	github.com/openshift/api => /root/git/api
 	github.com/openshift/hypershift/api => github.com/openshift/hypershift v0.0.0-20220323152148-c356b8b72d66
+	k8s.io/api => k8s.io/api v0.26.1
 	k8s.io/apimachinery => k8s.io/apimachinery v0.26.0-alpha.3.0.20221108052757-4fe4321a9d5e
+	k8s.io/apiserver => k8s.io/apiserver v0.26.1
 	k8s.io/client-go => k8s.io/client-go v0.26.1
+	k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20221012153701-172d655c2280
 	// for Hypershift
 	kubevirt.io/containerized-data-importer-api => github.com/kubevirt/containerized-data-importer-api v1.41.1-0.20211201033752-05520fb9f18d
 	sigs.k8s.io/cluster-api-provider-aws/v2 => sigs.k8s.io/cluster-api-provider-aws/v2 v2.0.0-20230403133355-646934ede0c4 // remove when downstream syns with upstream
