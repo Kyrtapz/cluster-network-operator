@@ -397,6 +397,7 @@ spec:
             --metrics-enable-pprof \
             --export-ovs-metrics \
             --disable-snat-multiple-gws \
+            --k8s-bootstrap-kubeconfig /var/lib/kubelet/kubeconfig \
             ${export_network_flows_flags} \
             ${multi_network_enabled_flag} \
             ${multi_network_policy_enabled_flag} \
@@ -467,6 +468,10 @@ spec:
         # for the CNI server socket
         - mountPath: /run/ovn-kubernetes/
           name: host-run-ovn-kubernetes
+        # TODO: Doc
+        - mountPath: /var/lib/kubelet/
+          name: host-kubelet
+          readOnly: true
         # accessing bind-mounted net namespaces
         - mountPath: /run/netns
           name: host-run-netns
@@ -594,6 +599,9 @@ spec:
       - name: systemd-units
         hostPath:
           path: /etc/systemd/system
+      - name: host-kubelet
+        hostPath:
+          path: /var/lib/kubelet
       # used for iptables wrapper scripts
       - name: host-slash
         hostPath:

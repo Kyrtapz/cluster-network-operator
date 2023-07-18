@@ -8,6 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"
+	kinformer "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
@@ -60,4 +61,5 @@ type ClusterClient interface {
 	HostPort() (string, string)
 
 	AddCustomInformer(inf cache.SharedInformer)
+	InformerFactory() kinformer.SharedInformerFactory
 }

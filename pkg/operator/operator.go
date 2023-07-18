@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+
+	ovnkubeapprover "github.com/openshift/cluster-network-operator/pkg/controller/ovnkube_approver"
 	"sigs.k8s.io/controller-runtime/pkg/config"
 
 	configv1 "github.com/openshift/api/config/v1"
@@ -113,6 +115,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	managementStateController := managementstatecontroller.NewOperatorManagementStateController("cluster-network-operator", o.client.Default().OperatorHelperClient(), controllerConfig.EventRecorder)
 	management.SetOperatorNotRemovable()
 
+	ovnKubeCSRApproverController, err := ovnkubeapprover.NewOVNKubeCSRApproverController(o.client, controllerConfig.EventRecorder)
 	// TODO: Enable the library-go ClusterOperatorStatusController once
 	// https://github.com/openshift/library-go/issues/936 is resolved.
 
@@ -131,6 +134,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	}()
 	go logLevelController.Run(ctx, 1)
 	go managementStateController.Run(ctx, 1)
+	go ovnKubeCSRApproverController.Run(ctx, 1)
 	if err := connectivitycheck.Start(ctx, o.client.Default().Config()); err != nil {
 		klog.Errorf("Failed to start connectivitycheck controller: %v", err)
 	}

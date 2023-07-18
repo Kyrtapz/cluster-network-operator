@@ -222,6 +222,10 @@ func (c *OperatorClusterClient) Config() *rest.Config {
 	return c.cfg
 }
 
+func (c *OperatorClusterClient) InformerFactory() kinformer.SharedInformerFactory {
+	return c.kFactory
+}
+
 func (c *OperatorClusterClient) Start(ctx context.Context) error {
 	if c.started {
 		return fmt.Errorf("Trying to start ClusterClient twice")
