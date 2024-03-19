@@ -98,6 +98,18 @@ const ClusterNameAnnotation = "network.operator.openshift.io/cluster-name"
 // value format: cluster/group/resource/namespace/name
 const RelatedClusterObjectsAnnotation = "network.operator.openshift.io/relatedClusterObjects"
 
+// JoinSwitchSubnetAnnotation is an annotation on the OVN deployment and daemonsets
+// to indicate the current join switch subnet available to the cluster.
+const JoinSwitchSubnetAnnotation = "networkoperator.openshift.io/join-switch-subnet"
+
+// TransitSwitchSubnetAnnotation is an annotation on the OVN deployment and daemonsets
+// to indicate the current transit switch subnet available to the cluster.
+const TransitSwitchSubnetAnnotation = "networkoperator.openshift.io/transit-switch-subnet"
+
+// InternalMasqueradeSubnetAnnotation is an annotation on the OVN deployment and daemonsets
+// to indicate the current masquerade subnet available to the cluster.
+const InternalMasqueradeSubnetAnnotation = "networkoperator.openshift.io/internal-masquerade-subnet"
+
 // MULTUS_VALIDATING_WEBHOOK is the name of the ValidatingWebhookConfiguration for multus-admission-controller
 // that is used in multus admission controller deployment
 const MULTUS_VALIDATING_WEBHOOK = "multus.openshift.io"
